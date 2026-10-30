@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>直播互动插件 · Web 控制台</title>
+<style>
+  :root{
+    --bg:#0d1017; --panel:#151a24; --panel2:#1b2230; --line:#283041;
+    --txt:#dbe2ee; --dim:#8b96a9; --acc:#3e9dd6; --ok:#4fbf87; --warn:#e8a04c; --err:#e06060;
+    --gold:#e6c05a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+       font:14px/1.5 "Segoe UI","Microsoft YaHei",sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:10px 18px;
+         background:var(--panel);border-bottom:1px solid var(--line);
+         position:sticky;top:0;z-index:5;flex-wrap:wrap}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  .badge{padding:3px 10px;border-radius:20px;font-size:12px;border:1px solid var(--line);
+         background:var(--panel2);color:var(--dim)}
+  .badge.on{color:#0e1b14;background:var(--ok);border-color:var(--ok)}
+  .badge.conn{color:#141007;background:var(--warn);border-color:var(--warn)}
+  .badge.err{color:#1c0d0d;background:var(--err);border-color:var(--err)}
+  .badge.idle{color:var(--dim)}
+  main{padding:0 18px 14px}
+  #tabs{display:flex;gap:6px;padding:10px 0 0;flex-wrap:wrap}
+  .tab{background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+       padding:8px 16px;border-radius:8px;cursor:pointer;font:inherit}
+  .tab.on{background:var(--acc);border-color:var(--acc);color:#fff}
+  .tabpage{display:none;gap:14px;align-items:start;padding-top:14px}
+  .tabpage.on{display:grid}
+  .tabpage .card{margin-bottom:0}
+  #tab-screen{grid-template-columns:minmax(380px,1.35fr) minmax(330px,1fr);
+              grid-template-areas:"p s" "p f" "p l"}
+  #card-stats{grid-area:s}#card-feed{grid-area:f}#preview{grid-area:p}#card-logs{grid-area:l}
+  #tab-src{grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+  #tab-ai{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+  #tab-deco{grid-template-columns:repeat(auto-fit,minmax(430px,1fr))}
+  .cgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+         gap:0 18px;align-items:start}
+  #logs{max-height:24vh;overflow-y:auto}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+        padding:14px;margin-bottom:14px}
+  .card h2{margin:0 0 10px;font-size:13px;letter-spacing:.5px;color:var(--dim);
+           text-transform:uppercase;font-weight:600}
+  .card h2.fold-head{cursor:pointer;position:relative;padding-right:20px;user-select:none}
+  .card h2.fold-head:hover{color:var(--txt)}
+  .card h2.fold-head::after{content:'▾';position:absolute;right:2px;top:-2px;color:var(--dim)}
+  .card.folded h2.fold-head{margin-bottom:0}
+  .card.folded h2.fold-head::after{content:'▸'}
+  .card.folded > :not(h2){display:none}
+  label{display:block;font-size:12px;color:var(--dim);margin:8px 0 3px}
+  input[type=text],input[type=password],input[type=number],textarea,select{
+    width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:6px;
+    color:var(--txt);padding:7px 9px;font:inherit}
+  textarea{resize:vertical;min-height:56px}
+  .row{display:flex;gap:8px}.row>*{flex:1}
+  button{background:var(--acc);border:0;border-radius:6px;color:#fff;cursor:pointer;
+         padding:8px 14px;font:inherit;margin-top:10px}
+  button.ghost{background:var(--panel2);border:1px solid var(--line);color:var(--txt)}
+  button.danger{background:var(--err)}
+  button:disabled{opacity:.45;cursor:default}
+  .hint{font-size:12px;color:var(--dim);margin-top:6px}
+  .stat{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--dim)}
+  .stat b{color:var(--txt);font-size:16px;display:block}
+  #feed{height:44vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;
+        padding-right:4px}
+  .ev{background:var(--panel2);border-left:3px solid var(--acc);border-radius:6px;
+      padding:7px 10px;font-size:13px;animation:in .18s ease-out}
+  @keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+  .ev .who{color:var(--acc);font-weight:600}
+  .ev .tag{font-size:11px;color:var(--dim);margin-left:6px}
+  .ev.comment{border-color:#3e9dd6}.ev.gift{border-color:#f08a3c}
+  .ev.like{border-color:#d65a8c}.ev.follow{border-color:#57b98a}
+  .ev.member{border-color:#9678dc}.ev.fansclub{border-color:#9678dc}
+  .ev.room_stats{border-color:#546072}
+  .ev.reply{border-color:var(--gold);background:#232014}
+  .ev.reply .who{color:var(--gold)}
+  #preview img{width:100%;border-radius:8px;background:#000;display:block}
+  #logs{height:200px;overflow-y:auto;font:12px/1.6 Consolas,monospace;color:var(--dim)}
+  #logs .error{color:var(--err)}#logs .warn{color:var(--warn)}#logs .ok{color:var(--ok)}
+  #logs .wss{color:var(--acc)}
+  .switch{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px}
+  .switch input{width:auto}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+    background:var(--panel2);border:1px solid var(--line);padding:9px 16px;
+    border-radius:8px;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none}
+  .toast.show{opacity:1}
+  #mjpeg{width:100%;height:auto;max-height:68vh;object-fit:contain;background:#000;border-radius:8px}
+  #preview:fullscreen{width:100vw;height:100vh;margin:0;padding:0;border:0;border-radius:0;background:#000;
+                      display:flex;flex-direction:column;justify-content:center;position:relative}
+  #preview:fullscreen #mjpeg{width:100vw;height:100vh;max-height:none;border-radius:0}
+  #preview:fullscreen h2,#preview:fullscreen .hint{display:none}
+  #preview:fullscreen .row{position:absolute;top:12px;right:16px;opacity:.25}
+  #preview:fullscreen .row:hover{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎬 直播互动插件 · Web 控制台</h1>
+  <span class="badge idle" id="b-app">应用：连接中…</span>
+  <span class="badge idle" id="b-wss">WSS：未连接</span>
+  <span class="badge idle" id="b-sim">模拟器：关</span>
+  <span style="flex:1"></span>
+  <span class="badge" id="b-stats">事件 0 · 帧 0</span>
+  <button class="ghost" style="margin-top:0" onclick="foldAll(false)">全部展开</button>
+  <button class="ghost" style="margin-top:0" onclick="foldAll(true)">全部折叠</button>
+  <button class="ghost" onclick="quit()" title="关闭控制台进程">退出进程</button>
+</header>
+
+<main>
+<nav id="tabs">
+  <button class="tab on" data-t="tab-screen">🖥 直播画面</button>
+  <button class="tab" data-t="tab-src">📡 数据源</button>
+  <button class="tab" data-t="tab-ai">🤖 互动（账本 / AI / 语音）</button>
+  <button class="tab" data-t="tab-deco">🎨 装修与布局</button>
+</nav>
+  <section class="tabpage" id="tab-src">
+    <div class="card" id="card-wss">
+      <h2>WSS 逆向数据源</h2>
+      <div style="border:1px solid var(--acc);border-radius:10px;padding:10px;margin-bottom:12px">
+        <label style="color:var(--acc)"><b>只填直播间链接（推荐，全自动）</b></label>
+        <input type="text" id="w-auto" placeholder="粘贴直播间链接 / 分享链接 / 直播间号">
+        <div class="row" style="margin-top:8px">
+          <button onclick="wssAutoConnect()">一键取数</button>
+        </div>
+        <div class="hint">程序自动开一个<b>匿名一次性浏览器实例</b>（无头、无痕性质，用完即删）打开直播间，
+          直接转发弹幕流。不用 F12、不用填任何凭据。下方高级参数仅备用。</div>
+      </div>
+      <details style="margin-bottom:10px"><summary style="cursor:pointer;font-size:13px;color:var(--dim)">高级：手动填鉴权参数</summary>
+      <div class="cgrid">
+      <div>
+      <label>懒人模式：把浏览器里整条 WebSocket 的请求 URL 粘到这里，自动拆出参数</label>
+      <input type="text" id="w-urlpaste" placeholder="wss://webcast5-ws-web-lf.douyin.com/webcast/im/push/v2/?app=10013&room_id_str=…">
+      <button class="ghost" style="margin-top:6px" onclick="parseWsUrl()">自动解析</button>
+      <label style="margin-top:10px">更懒人：一行命令自动复制那条 URL（不用碰「网络」标签）</label>
+      <textarea id="w-snippet" readonly rows="3" style="font:11px/1.5 Consolas,monospace">(()=>{const u=performance.getEntriesByType('resource').map(e=>e.name).find(n=>n.includes('webcast/im/push'));if(!u){alert('没找到连接记录：等直播画面播起来后再运行一次');return;}copy(u);alert('已复制到剪贴板！去插件控制台的懒人框里粘贴即可');})()</textarea>
+      <button class="ghost" style="margin-top:6px" onclick="navigator.clipboard.writeText($('w-snippet').value).then(()=>toast('命令已复制：回到直播间页面，F12→控制台→粘贴→回车'))">复制这行命令</button>
+      <details style="margin:8px 0"><summary style="cursor:pointer;font-size:12px;color:var(--dim)">抓不到？看这里</summary>
+        <div class="hint" style="margin-top:6px">
+          关键：<b>先开 F12 再刷新页面</b>，WS 连接只在页面加载时建立一次。<br>
+          ① 无痕窗口打开直播间 → 按 F12 → 切到「网络」标签 → 按 Ctrl+R 刷新页面<br>
+          ② 在「过滤」输入框直接输入 <b>im/push</b>（比点 WS 按钮更稳）<br>
+          ③ 等 5~10 秒播放器起来，会出现一条类型为 socket 的行，名字是 <b>v2/?app=10013…</b><br>
+          ④ 点开它 → 右侧「标头」→ 最上面「请求 URL」→ 右键 → 复制值<br>
+          ⑤ 粘贴到上面输入框，点自动解析。
+        </div>
+      </details>
+      </div>
+      <div>
+      <div class="row">
+        <div><label>room_id（直播间 id）</label>
+          <input type="text" id="w-room" placeholder="例如 7398xxxxxxxxxxxxxxx"></div>
+        <div><label>user_id</label><input type="text" id="w-user" placeholder="0"></div>
+      </div>
+      <label>device_id</label><input type="text" id="w-dev">
+      <label>cookie（浏览器 F12 → Network → 请求头）</label>
+      <input type="password" id="w-cookie" autocomplete="off">
+      <div class="row">
+        <div><label>ttwid</label><input type="password" id="w-ttwid" autocomplete="off"></div>
+        <div><label>signature</label><input type="password" id="w-sig" autocomplete="off"></div>
+      </div>
+      <div class="switch">
+        <input type="checkbox" id="w-remember"><span>凭据保存到 config.json（明文，谨慎）</span>
+      </div>
+      <div class="switch">
+        <input type="checkbox" id="w-autostart"><span>下次启动自动连接</span>
+      </div>
+      <div class="row">
+        <button onclick="wssConnect()">按上方参数连接</button>
+      </div>
+      <div class="hint">鉴权参数会过期；断开码 close(1005/4xxx) 一般是 cookie/signature 失效。</div>
+      </div>
+      </div>
+      </details>
+      <div class="row">
+        <button class="danger ghost" onclick="wssDisconnect()">断开</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>模拟互动消息（调试面板等效）</h2>
+      <label>随机事件间隔（秒）</label>
+      <input type="number" id="sim-interval" value="1.8" min="0.2" step="0.2">
+      <div class="row">
+        <button onclick="simStart()">开启模拟</button>
+        <button class="ghost" onclick="simStop()">停止</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>手动注入一条事件</h2>
+      <div class="row">
+        <div><label>类型</label>
+          <select id="i-type" onchange="injectForm()">
+            <option value="comment">评论</option><option value="gift">礼物</option>
+            <option value="like">点赞</option><option value="follow">关注</option>
+            <option value="member">进直播间</option>
+          </select></div>
+        <div><label>昵称</label><input type="text" id="i-nick" placeholder="控制台观众"></div>
+      </div>
+      <div id="i-extra"></div>
+      <button onclick="inject()">注入</button>
+    </div>
+  </section>
+
+  <section class="tabpage on" id="tab-screen">
+    <div class="card" id="card-stats">
+      <h2>运行统计</h2>
+      <div class="stat" id="stats"></div>
+    </div>
+    <div class="card" id="card-feed">
+      <h2>实时事件流（弹幕 / 礼物 / 进场 / AI 回复）</h2>
+      <div id="feed"></div>
+    </div>
+    <div class="card" id="preview">
+      <h2>最终画面（屏幕捕捉这一路 = 直播内容）</h2>
+      <img id="mjpeg" alt="画面未就绪">
+      <div class="row">
+        <button onclick="fullPreview()">⛶ 全屏显示（就当直播画面用）</button>
+      </div>
+      <div class="hint">全分辨率成品画布（人物+弹幕墙+余额面板，位置在「屏幕布局」里调）。
+        开播时点全屏，OBS 用「窗口捕捉/显示器捕捉」抓这个浏览器窗口即可。</div>
+    </div>
+    <div class="card" id="card-logs">
+      <h2>运行日志</h2>
+      <div id="logs"></div>
+    </div>
+  </section>
+
+  <section class="tabpage" id="tab-ai">
+    <div class="card" id="card-ledger">
+      <h2>余额账本</h2>
+      <div style="margin:4px 0 8px">
+        <div style="font-size:28px;line-height:1.2"><b id="lg-balance">0</b>
+          <span class="hint" style="font-size:13px" id="lg-cur">元</span></div>
+        <div class="hint" style="font-size:13px">今日收入
+          <b id="lg-income" style="color:#7ee0a0">+0</b>
+          · 今日花费 <b id="lg-spend" style="color:#ff9b8a">-0</b></div>
+        <div class="hint" style="font-size:13px">今日白饭
+          <b id="lg-rice" style="color:#f0e6c8">0 碗</b>
+          · 礼物 <b id="lg-giftsn" style="color:#f0a05a">0 份</b>
+          · Token <b id="lg-tokens" style="color:#78beff">0</b></div>
+      </div>
+      <div class="row">
+        <div><label>进账倍率</label><input type="number" id="lg-inmul" step="0.1" min="0"></div>
+        <div><label>消耗倍率</label><input type="number" id="lg-spmul" step="0.1" min="0"></div>
+        <div><label>每百万 Token（白饭）</label><input type="number" id="lg-token" step="0.01" min="0"></div>
+      </div>
+      <div class="row">
+        <div><label>未列礼物：抖币→白饭系数</label><input type="number" id="lg-coin" step="0.1" min="0"></div>
+        <div><label>初始余额（重置用）</label><input type="number" id="lg-start" step="1" min="0"></div>
+      </div>
+      <label>礼物品类价目（每行一个：礼物名=白饭/个）</label>
+      <textarea id="lg-gifts" placeholder="小心心=1&#10;玫瑰=2"></textarea>
+      <div class="row">
+        <button onclick="saveLedger()">保存账本规则</button>
+        <button class="ghost" onclick="ledgerReset()">重置账本</button>
+      </div>
+      <div class="row">
+        <div><label>手动记账金额</label><input type="number" id="lg-amt" step="1" value="10"></div>
+        <button class="ghost" onclick="ledgerAdjust(+$('lg-amt').value||0)">记进账</button>
+        <button class="ghost" onclick="ledgerAdjust(-(+$('lg-amt').value||0))">记消耗</button>
+      </div>
+    </div>
+
+    <div class="card" id="card-ai">
+      <h2>AI 编排</h2>
+      <div class="switch"><input type="checkbox" id="a-enabled"><span>启用大模型回复评论</span></div>
+      <label>推给 AI 回复的事件（其余类型不推 AI，自行接 TTS）</label>
+      <div id="a-rt-box" class="row" style="gap:14px;flex-wrap:wrap"></div>
+      <div class="row">
+        <div><label>base_url</label><input type="text" id="a-url"></div>
+        <div><label>model</label><input type="text" id="a-model"></div>
+      </div>
+      <label>api_key（留空不修改）</label>
+      <input type="password" id="a-key" autocomplete="new-password">
+      <label>人设 persona</label>
+      <textarea id="a-persona"></textarea>
+      <div class="row">
+        <div><label>欢迎模板</label><input type="text" id="a-welcome"></div>
+      </div>
+      <div class="row">
+        <div><label>礼物模板</label><input type="text" id="a-gifttpl"></div>
+      </div>
+      <div class="row">
+        <div><label>回复 token 预算（推理模型建议 ≥400）</label><input type="number" id="a-mtok" min="64" max="4000"></div>
+        <div><label>评论节流（秒）</label><input type="number" id="a-mincomment" min="0" step="0.5"></div>
+      </div>
+      <div class="row">
+        <button onclick="applyAi()">应用 AI 设置</button>
+        <button class="ghost" onclick="saveAll()">保存全部到 config.json</button>
+      </div>
+    </div>
+    <div class="card" id="card-tts">
+      <h2>语音 TTS（本地 GPT-SoVITS，端口 9880）</h2>
+      <div class="switch"><input type="checkbox" id="t-on"><span>启用语音（先双击 start_api_only.bat 起 TTS 服务）</span></div>
+      <div class="row">
+        <div><label>base_url</label><input type="text" id="t-url"></div>
+        <div><label>语速 0.5–2.0</label><input type="number" id="t-speed" step="0.05" min="0.5" max="2"></div>
+        <div><label>语音音量 0-200</label><input type="number" id="t-vol" min="0" max="200" step="5"></div>
+      </div>
+      <label>参考音频绝对路径（3–15 秒，正斜杠）</label>
+      <input type="text" id="t-ref">
+      <label>参考音频文本（逐字一致，否则音色不稳）</label>
+      <input type="text" id="t-prompt">
+      <label>哪些要朗读（AI 回复=大模型文本；进场/关注/点赞=固定模板）</label>
+      <div id="t-type-box" class="row" style="gap:14px;flex-wrap:wrap"></div>
+      <div class="row">
+        <div style="flex:2"><label>试听文本</label><input type="text" id="t-test" value="好的，测试一下，这是主播的声音～"></div>
+      </div>
+      <div class="row">
+        <button onclick="ttsTest()">试听（首次约 20-30 秒，别关页面）</button>
+        <button class="ghost" onclick="saveTts()">应用并保存 TTS 设置</button>
+      </div>
+      <div class="hint" id="t-stats"></div>
+    </div>
+    <div class="card" id="card-song">
+      <h2>点歌中心（官方 ncm-cli）</h2>
+      <div class="switch"><input type="checkbox" id="j-on"><span>开启弹幕点歌（弹幕发「点歌 歌名」）</span></div>
+      <div class="row">
+        <div><label>触发词</label><input type="text" id="j-trigger" placeholder="点歌"></div>
+        <div><label>每人冷却（秒）</label><input type="number" id="j-cd" min="0"></div>
+      </div>
+      <div class="row">
+        <div style="flex:2"><label>黑名单（每行一个词，歌名含词即拒）</label>
+          <textarea id="j-black" rows="2"></textarea></div>
+      </div>
+      <label>点歌成功播报（{nickname} {song}）</label>
+      <input type="text" id="j-voice">
+      <div class="row">
+        <div><label>每首播放（秒）</label><input type="number" id="j-sec" min="10" max="120"></div>
+        <div><label>队列上限（首）</label><input type="number" id="j-qmax" min="1" max="20"></div>
+      </div>
+      <div class="row">
+        <div><label>音乐音量 0-100（恒定，说话不影响）</label><input type="number" id="j-mvol" min="0" max="100"></div>
+      </div>
+      <div class="row">
+        <div class="switch" style="flex:1"><input type="checkbox" id="j-bgm"><span>队列空了自动随机垫歌（音乐不停，来点歌立刻让位）</span></div>
+      </div>
+      <label>垫歌曲库（一行一个歌名/关键词；留空=内置热门华语池）</label>
+      <textarea id="j-bpool" rows="2" placeholder="起风了&#10;稻香&#10;夜空中最亮的星"></textarea>
+      <div class="row">
+        <div class="switch" style="flex:1"><input type="checkbox" id="j-panel-on"><span>画面上的队列面板</span></div>
+        <div style="flex:1.4"><label>面板标题</label><input type="text" id="j-panel-title"></div>
+        <div><label>文字大小 ×（0.5~2）</label><input type="number" id="j-fs" step="0.05" min="0.5" max="2"></div>
+      </div>
+      <label>开放平台密钥（developer.music.163.com → 控制台 → 账户信息）</label>
+      <div class="row">
+        <div><label>appId</label><input type="text" id="j-appid" placeholder="留空=不修改"></div>
+        <div><label>privateKey</label><input type="password" id="j-pkey" placeholder="留空=不修改" autocomplete="off"></div>
+      </div>
+      <div class="row">
+        <button onclick="jukeSave()">保存点歌设置（含密钥）</button>
+        <button class="ghost" onclick="jukeLogin()">扫码登录（首次一次）</button>
+      </div>
+      <div class="row">
+        <div style="flex:2"><label>手动点歌（真实进队播放）</label>
+          <input type="text" id="j-kw" placeholder="晴天"></div>
+        <div><label>&nbsp;</label>
+          <button class="ghost" style="margin-top:0" onclick="jukeReq()">点歌</button></div>
+        <div><label>&nbsp;</label>
+          <button class="ghost" style="margin-top:0" onclick="jukeTest()">只搜索</button></div>
+      </div>
+      <div class="row">
+        <button class="ghost" onclick="jukeSkip()">跳过当前</button>
+        <button class="ghost" onclick="jukeClear()">清空队列</button>
+      </div>
+      <div class="hint" id="j-status">未启用</div>
+    </div>
+  </section>
+
+  <section class="tabpage" id="tab-deco">
+    <div class="card" id="card-deco">
+      <h2>弹幕面板装修（点「实时应用」立刻看效果）</h2>
+      <div class="cgrid">
+      <div class="switch"><input type="checkbox" id="d-title-on"><span>顶部标题</span></div>
+      <div class="row">
+        <div style="flex:2"><label>标题文字（换成你的直播间名）</label>
+          <input type="text" id="d-title" placeholder="互动弹幕墙"></div>
+        <div><label>标题颜色</label><input type="color" id="d-title-color" value="#ffffff"></div>
+      </div>
+      <div class="row">
+        <div><label>面板底色</label><input type="color" id="d-bg-color" value="#0c101e"></div>
+        <div><label>不透明度 0-255</label><input type="number" id="d-bg-alpha" min="0" max="255"></div>
+        <div><label>圆角 px</label><input type="number" id="d-radius" min="0" max="120"></div>
+      </div>
+      <div class="row">
+        <div><label>字体缩放</label><input type="number" id="d-fscale" min="0.7" max="1.8" step="0.05"></div>
+        <div><label>固定显示条数（向上滚动）</label><input type="number" id="d-maxlines" min="3" max="24" step="1"></div>
+        <div class="switch" style="align-self:end"><input type="checkbox" id="d-border-on"><span>面板描边</span></div>
+      </div>
+      <label>底部公告（每行一条，自动轮播）</label>
+      <textarea id="d-banners" placeholder="点关注不迷路～&#10;每晚 8 点开播"></textarea>
+      <div class="row"><div><label>公告轮播间隔（秒）</label>
+        <input type="number" id="d-bsec" min="2" max="60" value="6"></div></div>
+      <label>背景图（透明 PNG，替代纯色底）</label>
+      <input type="file" id="d-bgfile" accept=".png,.jpg,.jpeg,.webp">
+      <div class="hint" id="d-bgnote">未设置背景图（用纯色底）</div>
+      <div class="row"><div><button class="ghost" style="margin-top:0" onclick="clearBg()">清除背景图</button></div></div>
+      <label>显示哪些事件类型</label>
+      <div id="d-types" style="display:flex;flex-wrap:wrap;gap:10px;font-size:13px;margin:4px 0 8px"></div>
+      <label>文案模板（可用 {nickname} {gift_name} {gift_num} {like_num}）</label>
+      <div class="row"><div><label>礼物</label>
+        <input type="text" id="d-tpl-gift" placeholder="送出 {gift_name}"></div></div>
+      <div class="row">
+        <div><label>点赞</label><input type="text" id="d-tpl-like" placeholder="点赞"></div>
+        <div><label>关注</label><input type="text" id="d-tpl-follow" placeholder="关注了主播"></div>
+      </div>
+      <div class="row"><div><label>进场</label>
+        <input type="text" id="d-tpl-member" placeholder="进入直播间"></div></div>
+      <h2 style="margin-top:14px">人物参数</h2>
+      <div class="row">
+        <div><label>名字</label><input type="text" id="c-name"></div>
+        <div><label>主色相 0-360</label><input type="number" id="c-hue" min="0" max="360"></div>
+        <div><label>浮动幅度</label><input type="number" id="c-amp" min="0" max="60" step="2"></div>
+      </div>
+      <label>人物视频库（同一位置放多个视频，随时切换）</label>
+      <input type="file" id="c-video" accept=".mp4,.webm,.mov,.mkv,video/*">
+      <div class="row">
+        <div style="flex:2"><label>当前使用（切换即自动生效）</label>
+          <select id="c-videosel" onchange="applyRender()"></select></div>
+        <div><label>&nbsp;</label>
+          <button class="ghost" style="margin-top:0" onclick="deleteVideo()">删除所选</button></div>
+      </div>
+      <div class="row">
+        <div><label>随机切换间隔（秒，0=不自动切）</label><input type="number" id="c-rot" min="0" max="600" onchange="applyRender()"></div>
+      </div>
+      <div class="hint" id="c-videonote">上传 = 加入视频库并立即启用；「当前使用」下拉手动切；填了「随机切换间隔」且库里有 ≥2 条视频时，会每隔那么多秒自动随机换一条（切完从头播该视频）。删下拉里选中的可移除。</div>
+      <div class="row">
+        <div class="switch" style="align-self:end"><input type="checkbox" id="c-chroma-on"><span>背景抠像（绿幕/纯色背景）</span></div>
+        <div><label>抠像颜色</label><input type="color" id="c-chroma-color" value="#00ff00"></div>
+      </div>
+      <div class="row">
+        <div><label>容差 0-255</label><input type="number" id="c-chroma-tol" min="0" max="255" placeholder="60"></div>
+        <div><label>边缘柔化 0-255</label><input type="number" id="c-chroma-soft" min="0" max="255" placeholder="30"></div>
+      </div>
+      <div class="hint">普通视频（如手机拍的 mp4）背景是绿幕/纯色时：勾上「背景抠像」、把颜色选成背景色，就会自动抠成透明，效果等同透明素材。透明视频自带 Alpha，无需抠像。上传后存为 <code>assets/character.*</code> 并即时生效。</div>
+      <h2 style="margin-top:14px">礼物音效（收到礼物播一声）</h2>
+      <div class="row">
+        <div class="switch" style="align-self:end"><input type="checkbox" id="s-on"><span>收到礼物播放音效</span></div>
+        <div><label>当前音效（多个随机播）</label><input type="text" id="s-note" readonly></div>
+        <div><label>&nbsp;</label><button class="ghost" style="margin-top:0" onclick="sfxTest()">试听一声</button></div>
+      </div>
+      <input type="file" id="s-wav" accept=".wav,audio/wav">
+      <div class="hint">只支持 <code>.wav</code>（金币/叮咚等短音效）。上传即入库并当场试听；想换就再传一个，多个会随机挑着播。留空则收到礼物不出声。</div>
+      <h2 style="margin-top:14px">余额面板（独立画面层）</h2>
+      <div class="row">
+        <div class="switch" style="align-self:end"><input type="checkbox" id="d-bon"><span>显示余额面板</span></div>
+        <div><label>面板标题</label><input type="text" id="d-btitle" placeholder="直播小账本"></div>
+      </div>
+      <h2 style="margin-top:14px">最终画面画布（屏幕捕捉这一路）</h2>
+      <div class="row">
+        <div><label>成品分辨率</label>
+          <select id="d-csize"><option value="v">竖屏 1080×1920</option><option value="h">横屏 1920×1080</option></select></div>
+        <div><label>合成帧率</label><input type="number" id="d-cfps" min="6" max="30" step="1"></div>
+        <div><label>画质 60-95</label><input type="number" id="d-cq" min="60" max="95" step="1"></div>
+      </div>
+      <div class="hint">换分辨率后点「实时应用」，人物/弹幕墙/余额面板自动重排位；要微调每层的位置大小，改 <code>config.json</code> 的 <code>canvas.layout</code>。</div>
+      </div>
+      <div class="row">
+        <button onclick="applyRender()">实时应用</button>
+        <button class="ghost" onclick="testFx()">注入演示事件</button>
+      </div>
+    </div>
+    <div class="card" id="card-layout">
+      <h2>屏幕布局（位置与大小，单位=画面像素）</h2>
+      <div id="lay-rows"></div>
+      <div class="hint">X/Y 是相对画面左上角；「宽/高」同时是该层的渲染分辨率——改大不会糊。</div>
+      <h2 style="margin-top:14px">余额面板样式</h2>
+      <div class="row">
+        <div><label>底色</label><input type="color" id="b-bg-color" value="#0c101e"></div>
+        <div><label>不透明度 0-255</label><input type="number" id="b-bg-alpha" min="0" max="255"></div>
+        <div><label>主色（数字/描边）</label><input type="color" id="b-accent" value="#ffd65a"></div>
+      </div>
+      <div class="row">
+        <div><label>圆角 px</label><input type="number" id="b-radius" min="0" max="200"></div>
+        <div><label>描边粗细 px（0=无）</label><input type="number" id="b-bw" min="0" max="8"></div>
+        <div><label>文字大小 ×（0.5~2）</label><input type="number" id="b-fs" step="0.05" min="0.5" max="2"></div>
+      </div>
+      <h2 style="margin-top:14px">AI 气泡（主播回复自动显示）</h2>
+      <div class="row">
+        <div class="switch" style="align-self:end"><input type="checkbox" id="pb-on"><span>画布显示气泡</span></div>
+        <div><label>每条显示秒数 3~30</label><input type="number" id="pb-ttl" min="3" max="30"></div>
+        <div><label>尾巴方向</label><select id="pb-tail"><option value="up">朝上（气泡在角色下方）</option><option value="down">朝下</option><option value="none">无尾巴</option></select></div>
+        <div><label>文字大小 ×（0.5~2）</label><input type="number" id="pb-fs" step="0.05" min="0.5" max="2"></div>
+      </div>
+      <h2 style="margin-top:14px">音乐频谱（随音乐跳动的直方图）</h2>
+      <div class="row">
+        <div class="switch" style="align-self:end"><input type="checkbox" id="hs-on"><span>画布显示频谱</span></div>
+        <div><label>柱数 8~64</label><input type="number" id="hs-bars" min="8" max="64"></div>
+        <div><label>灵敏度 0.2~3</label><input type="number" id="hs-sens" step="0.1" min="0.2" max="3"></div>
+        <div class="switch" style="align-self:end"><input type="checkbox" id="hs-cap"><span>柱顶余辉小杆</span></div>
+      </div>
+      <div class="row">
+        <div><label>低柱颜色</label><input type="color" id="hs-c1" value="#7ec8ff"></div>
+        <div><label>高柱颜色</label><input type="color" id="hs-c2" value="#ff6ebe"></div>
+        <div id="hs-note" class="hint" style="align-self:center"></div>
+      </div>
+      <div class="row">
+        <button onclick="applyLayout()">应用布局与样式</button>
+      </div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let GIFT_NAMES = [];
+
+// ---- 卡片折叠（点卡片标题折叠/展开，状态自动记忆）----
+function saveFolds(){
+  const m = {};
+  document.querySelectorAll('.card').forEach(c => m[c.id] = c.classList.contains('folded'));
+  localStorage.setItem('lp_folds', JSON.stringify(m));
+}
+function foldAll(f){
+  document.querySelectorAll('.card').forEach(c => c.classList.toggle('folded', f));
+  saveFolds();
+}
+document.querySelectorAll('.card').forEach((c, i) => {
+  if (!c.id) c.id = 'card-auto-' + i;
+  const h = c.querySelector('h2');
+  if (!h) return;
+  h.classList.add('fold-head');
+  h.title = '点击折叠/展开';
+  h.addEventListener('click', () => {
+    c.classList.toggle('folded');
+    saveFolds();
+  });
+});
+{
+  const saved = JSON.parse(localStorage.getItem('lp_folds') || 'null');
+  if (saved) document.querySelectorAll('.card').forEach(c =>
+    c.classList.toggle('folded', !!saved[c.id]));
+  else ['card-deco', 'card-layout'].forEach(id =>
+    { const el = $(id); if (el) el.classList.add('folded'); });
+}
+
+// ---- 标签页（一次只看一组，不再又长又挤）----
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.tabpage').forEach(p => p.classList.toggle('on', p.id === b.dataset.t));
+  localStorage.setItem('lp_tab', b.dataset.t);
+}));
+{
+  const t = localStorage.getItem('lp_tab');
+  if (t && document.getElementById(t)) {
+    const btn = document.querySelector('.tab[data-t="' + t + '"]');
+    if (btn) btn.click();
+  }
+}
+
+function toast(msg, isErr){
+  const t = $('toast'); t.textContent = msg;
+  t.style.borderColor = isErr ? 'var(--err)' : 'var(--line)';
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 2600);
+}
+async function post(url, body){
+  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'},
+                              body: JSON.stringify(body||{})});
+  const j = await r.json().catch(()=>({}));
+  if (!r.ok || j.ok === false) toast(j.message || ('HTTP '+r.status), true);
+  return j;
+}
+async function get(url){ return (await fetch(url)).json(); }
+
+// ---- WSS ----
+function parseWsUrl(){
+  const raw = $('w-urlpaste').value.trim();
+  if (!raw) { toast('先粘贴整条请求 URL', true); return; }
+  const q = raw.includes('?') ? raw.slice(raw.indexOf('?') + 1) : raw;
+  const map = {room_id_str:'w-room', device_id:'w-dev', signature:'w-sig',
+               ttwid:'w-ttwid', user_id:'w-user'};
+  let filled = [];
+  q.split('&').forEach(kv => {
+    const i = kv.indexOf('='); if (i < 0) return;
+    const k = kv.slice(0, i), v = decodeURIComponent(kv.slice(i + 1));
+    if (map[k] && v) { $(map[k]).value = v; filled.push(k); }
+  });
+  if (!filled.length) { toast('没解析出任何参数，确认粘贴的是那条 v2/?app=10013… 的 URL', true); return; }
+  toast('已自动填入：' + filled.join('、') + '（cookie 留空=游客）');
+}
+function wssParams(){
+  return {room_id: $('w-room').value.trim(), user_id: $('w-user').value.trim(),
+          device_id: $('w-dev').value.trim(), cookie: $('w-cookie').value.trim(),
+          ttwid: $('w-ttwid').value.trim(), signature: $('w-sig').value.trim()};
+}
+async function wssConnect(){
+  toast('连接请求已发出…');
+  const j = await post('/api/wss/connect', wssParams());
+  if (j.ok) refreshState();
+}
+async function wssAutoConnect(){
+  const u = $('w-auto').value.trim();
+  if (!u) { toast('先粘贴直播间链接（地址栏或分享链接都行）', true); return; }
+  toast('一键取数中：匿名浏览器正在打开直播间（约 10~30 秒，窗口无感知）…');
+  const j = await post('/api/wss/connect', {mode:'auto', room_url: u});
+  if (j.ok) refreshState(); else toast(j.message || '启动失败', true);
+}
+async function wssDisconnect(){ await post('/api/wss/disconnect'); refreshState(); }
+
+// ---- 模拟 / 注入 ----
+async function simStart(){ await post('/api/sim/start', {interval: +$('sim-interval').value}); refreshState(); }
+async function simStop(){ await post('/api/sim/stop'); refreshState(); }
+
+function injectForm(){
+  const t = $('i-type').value, box = $('i-extra');
+  if (t==='comment') box.innerHTML = '<label>内容</label><input type="text" id="i-content" placeholder="主播好漂亮">';
+  else if (t==='gift') box.innerHTML = '<label>礼物</label><select id="i-gift">' +
+      GIFT_NAMES.map(n=>`<option>${n}</option>`).join('') +
+      '</select><label>数量</label><input type="number" id="i-num" value="1" min="1">';
+  else if (t==='like') box.innerHTML = '<label>点赞数</label><input type="number" id="i-num" value="10" min="1">';
+  else if (t==='member') box.innerHTML = '<label>进场时在线人数</label><input type="number" id="i-mc" value="128" min="0">';
+  else box.innerHTML = '';
+}
+async function inject(){
+  const t = $('i-type').value;
+  const p = {type:t, nickname: $('i-nick').value.trim()};
+  if (t==='comment') p.content = ($('i-content')||{}).value || '';
+  if (t==='gift') { p.gift_name = ($('i-gift')||{}).value; p.num = +($('i-num')||{}).value||1; }
+  if (t==='like') p.num = +($('i-num')||{}).value||10;
+  if (t==='member') p.member_count = +($('i-mc')||{}).value||0;
+  const j = await post('/api/inject', p);
+  if (j.ok) toast('已注入');
+}
+
+// ---- AI / 配置 ----
+const RTYPES = [['comment','弹幕评论'],['gift','送礼'],['member','进场'],
+                ['follow','关注'],['like','点赞']];
+function buildReplyTypes(cur){
+  const box = $('a-rt-box');
+  if (!box.children.length)
+    box.innerHTML = RTYPES.map(([k,l]) =>
+      `<label style="display:flex;gap:5px;align-items:center;margin:0">
+       <input type="checkbox" class="a-rt" data-k="${k}" style="width:auto">
+       <span>${l}</span></label>`).join('');
+  box.querySelectorAll('.a-rt').forEach(el =>
+    el.checked = cur ? cur.includes(el.dataset.k)
+                     : (el.dataset.k === 'comment' || el.dataset.k === 'gift'));
+}
+function replyTypesFromUI(){
+  return [...document.querySelectorAll('.a-rt')].filter(c => c.checked)
+         .map(c => c.dataset.k);
+}
+function fillAi(ai){
+  if (busy('card-ai')) return;
+  $('a-enabled').checked = !!ai.enabled;
+  buildReplyTypes(ai.reply_types);
+  $('a-url').value = ai.base_url || '';
+  $('a-model').value = ai.model || '';
+  $('a-persona').value = ai.persona || '';
+  $('a-welcome').value = ai.welcome_template || '';
+  $('a-gifttpl').value = ai.gift_template || '';
+  $('a-mincomment').value = (ai.min_interval||{}).comment ?? 2;
+  $('a-mtok').value = ai.max_tokens ?? 500;
+}
+async function applyAi(){
+  const body = {enabled: $('a-enabled').checked, base_url: $('a-url').value.trim(),
+    model: $('a-model').value.trim(), persona: $('a-persona').value,
+    welcome_template: $('a-welcome').value, gift_template: $('a-gifttpl').value,
+    reply_types: replyTypesFromUI(), max_tokens: +$('a-mtok').value || 500,
+    min_interval: {comment: +$('a-mincomment').value}};
+  const k = $('a-key').value.trim(); if (k) body.api_key = k;
+  const j = await post('/api/ai', body);
+  if (j.ok) { toast('AI 设置已生效'); $('a-key').value=''; }
+}
+async function saveAll(){
+  const body = {ai: {enabled: $('a-enabled').checked, base_url: $('a-url').value.trim(),
+    model: $('a-model').value.trim(), persona: $('a-persona').value,
+    welcome_template: $('a-welcome').value, gift_template: $('a-gifttpl').value,
+    reply_types: replyTypesFromUI(), max_tokens: +$('a-mtok').value || 500,
+    min_interval: {comment: +$('a-mincomment').value}},
+    render: collectRender(),
+    canvas: canvasFromUI(),
+    jukebox: collectJuke(),
+    ledger: ledgerRulesFromUI(),
+    wss: {room_id: $('w-room').value.trim(), user_id: $('w-user').value.trim(),
+      device_id: $('w-dev').value.trim(), room_url: $('w-auto').value.trim(),
+      remember: $('w-remember').checked,
+      autostart: $('w-autostart').checked}};
+  const k = $('a-key').value.trim(); if (k) body.ai.api_key = k;
+  if (body.wss.remember) { body.wss.cookie = $('w-cookie').value;
+    body.wss.ttwid = $('w-ttwid').value; body.wss.signature = $('w-sig').value; }
+  const j = await post('/api/config/save', body);
+  if (j.ok) toast('已保存 ' + (j.path||'config.json'));
+}
+async function quit(){
+  if (!confirm('确定退出控制台进程？')) return;
+  await post('/api/quit'); toast('进程退出中，可关闭本页面');
+}
+
+// ---- 装修 ----
+let bgPath = '';
+let cVideo = '';
+const TYPES = [['comment','评论'],['gift','礼物'],['like','点赞'],['follow','关注'],
+               ['member','进场'],['fansclub','粉丝团'],['room_stats','在线']];
+const editedAt = {};
+document.addEventListener('input', e => {
+  let el = e.target;
+  while (el && !(el.id||'').startsWith('card-')) el = el.parentElement;
+  if (el) editedAt[el.id] = Date.now();
+});
+function busy(cardId){
+  const el = $(cardId);
+  return (Date.now() - (editedAt[cardId]||0) < 10000) ||
+         (el && el.contains(document.activeElement));
+}
+function hex2rgb(h){ h=(h||'#000000').replace('#',''); if(h.length===3)h=h.split('').map(c=>c+c).join('');
+  const n=parseInt(h,16)||0; return [(n>>16)&255,(n>>8)&255,n&255]; }
+function rgb2hex(a){ return '#'+(a||[0,0,0]).slice(0,3).map(v=>(+v||0).toString(16).padStart(2,'0')).join(''); }
+function buildTypes(cur){
+  const box = $('d-types');
+  if (!box.children.length)
+    box.innerHTML = TYPES.map(([k,l]) =>
+      `<label style="display:flex;gap:5px;align-items:center;margin:0">
+       <input type="checkbox" class="d-type" data-k="${k}" style="width:auto">
+       <span>${l}</span></label>`).join('');
+  box.querySelectorAll('.d-type').forEach(el =>
+    el.checked = !cur || cur[el.dataset.k] !== false);
+}
+function fillDeco(rd, cv){
+  if (!rd || busy('card-deco')) return;
+  const d = rd.danmaku || {}, c = rd.character || {};
+  $('d-title-on').checked = d.title ? d.title.enabled !== false : true;
+  $('d-title').value = (d.title||{}).text ?? '互动弹幕墙';
+  $('d-title-color').value = rgb2hex((d.title||{}).color || [255,255,255]);
+  const bg = d.bg || [12,16,30,150];
+  $('d-bg-color').value = rgb2hex(bg); $('d-bg-alpha').value = bg[3] ?? 150;
+  $('d-radius').value = d.radius ?? 27;
+  $('d-fscale').value = d.font_scale ?? 1;
+  $('d-maxlines').value = d.max_lines ?? 12;
+  $('d-border-on').checked = (d.border||{}).enabled !== false;
+  $('d-banners').value = (d.banners||[]).map(b=>b.text).join('\n');
+  $('d-bsec').value = d.banner_seconds ?? 6;
+  bgPath = d.bg_image || '';
+  $('d-bgnote').textContent = bgPath ? '当前背景图：' + bgPath : '未设置背景图（用纯色底）';
+  buildTypes(d.show_types);
+  const tpl = d.templates || {};
+  $('d-tpl-gift').value = tpl.gift || ''; $('d-tpl-like').value = tpl.like || '';
+  $('d-tpl-follow').value = tpl.follow || ''; $('d-tpl-member').value = tpl.member || '';
+  $('c-name').value = c.name || ''; $('c-hue').value = c.base_hue ?? 205;
+  $('c-amp').value = c.idle_amplitude ?? 18;
+  $('c-rot').value = c.rotate_seconds ?? 90;
+  const chm = c.chroma || {};
+  $('c-chroma-on').checked = !!chm.enabled;
+  $('c-chroma-color').value = rgb2hex(chm.color || [0, 255, 0]);
+  $('c-chroma-tol').value = chm.tolerance ?? 60;
+  $('c-chroma-soft').value = chm.softness ?? 30;
+  cVideo = c.video || '';
+  const vids = c.videos || (cVideo ? [cVideo] : []);
+  const sel = $('c-videosel');
+  if (sel) {
+    sel.innerHTML = '<option value="">（无视频：透明空场）</option>' +
+      vids.map(v => '<option value="' + v + '">' + v + '</option>').join('');
+    sel.value = cVideo;
+  }
+  $('c-videonote').textContent = vids_note(vids, cVideo);
+  const b = rd.balance || {};
+  $('d-bon').checked = b.enabled !== false;
+  $('d-btitle').value = b.title ?? '直播小账本';
+  if (rd.songq && !busy('card-song')){
+    $('j-panel-on').checked = rd.songq.enabled !== false;
+    $('j-panel-title').value = rd.songq.title ?? '点歌队列';
+    $('j-fs').value = rd.songq.font_scale ?? 1;
+  }
+  if (cv){
+    curCanvasSize = (+cv.width > +cv.height) ? 'h' : 'v';
+    $('d-csize').value = curCanvasSize;
+    $('d-cfps').value = cv.fps ?? 24;
+    $('d-cq').value = cv.quality ?? 88;
+  }
+}
+// ---- 成品画布（最终画面）----
+function canvasLayout(size){
+  return size === 'h' ? {
+    character: {x: 60,  y: 60,  w: 640, h: 960},
+    danmaku:   {x: 1300, y: 60, w: 560, h: 812},
+    balance:   {x: 760, y: 860, w: 520, h: 170},
+    bubble:    {x: 760, y: 640, w: 480, h: 200},
+    histo:     {x: 60,  y: 880, w: 460, h: 140}
+  } : {
+    character: {x: 180, y: 720, w: 720, h: 1080},
+    danmaku:   {x: 30,  y: 120, w: 460, h: 668},
+    balance:   {x: 530, y: 40,  w: 520, h: 170},
+    bubble:    {x: 30,  y: 810, w: 620, h: 190},
+    histo:     {x: 30,  y: 1020, w: 460, h: 140}
+  };
+}
+let curCanvasSize = 'v';
+function canvasFromUI(){
+  const size = $('d-csize').value;
+  const o = {width: size === 'h' ? 1920 : 1080,
+             height: size === 'h' ? 1080 : 1920,
+             fps: Math.max(6, Math.min(30, +$('d-cfps').value || 24)),
+             quality: Math.max(60, Math.min(95, +$('d-cq').value || 88))};
+  if (size !== curCanvasSize) o.layout = canvasLayout(size);  // 换横竖屏才重排；自定义位置不会被冲掉
+  return o;
+}
+// ---- 屏幕布局（位置与大小）----
+const LAYERS = [['character','人物视频'],['danmaku','弹幕墙'],['balance','余额面板'],['songq','点歌队列面板'],['bubble','AI气泡'],['histo','音乐频谱']];
+function buildLayout(cv){
+  const box = $('lay-rows');
+  if (!box.children.length)
+    box.innerHTML = LAYERS.map(([k,l]) =>
+      `<div class="row" style="margin-bottom:4px">
+        <span style="flex:1.2;align-self:center;font-size:13px">${l}</span>
+        <div><label>X</label><input type="number" id="lay-${k}-x"></div>
+        <div><label>Y</label><input type="number" id="lay-${k}-y"></div>
+        <div><label>宽</label><input type="number" id="lay-${k}-w" min="40"></div>
+        <div><label>高</label><input type="number" id="lay-${k}-h" min="40"></div>
+      </div>`).join('');
+  if (busy('card-layout')) return;
+  const L = (cv && cv.layout) || {};
+  LAYERS.forEach(([k]) => {
+    const b = L[k] || {};
+    $('lay-'+k+'-x').value = b.x ?? 0;
+    $('lay-'+k+'-y').value = b.y ?? 0;
+    $('lay-'+k+'-w').value = b.w ?? 0;
+    $('lay-'+k+'-h').value = b.h ?? 0;
+  });
+}
+function layoutFromUI(){
+  const layout = {};
+  LAYERS.forEach(([k]) => {
+    layout[k] = {x: +$('lay-'+k+'-x').value || 0,
+                 y: +$('lay-'+k+'-y').value || 0,
+                 w: Math.max(40, +$('lay-'+k+'-w').value || 0),
+                 h: Math.max(40, +$('lay-'+k+'-h').value || 0)};
+  });
+  return layout;
+}
+function fillSfx(s){
+  if (!s || busy('card-deco')) return;
+  $('s-on').checked = s.enabled !== false;
+  const list = (s.files && s.files.length) ? s.files : (s.available || []);
+  $('s-note').value = list.length ? list.join(' , ') : '（还没有，上传一个 wav）';
+}
+async function sfxTest(){
+  const j = await post('/api/sfx/test', {});
+  if (j.played) toast('已随机试听一个音效');
+  else toast(j.message || '没有可用音效');
+}
+function fillBalanceStyle(b){
+  if (!b || busy('card-layout')) return;
+  const bg = b.bg || [12,16,30,170];
+  $('b-bg-color').value = rgb2hex(bg);
+  $('b-bg-alpha').value = bg[3] ?? 170;
+  $('b-accent').value = rgb2hex(b.accent || [255,214,90]);
+  $('b-radius').value = b.radius ?? '';
+  $('b-bw').value = b.border_width ?? 2;
+  $('b-fs').value = b.font_scale ?? 1;
+}
+function balanceStyleFromUI(){
+  const o = {bg: [...hex2rgb($('b-bg-color').value),
+                  Math.max(0, Math.min(255, +$('b-bg-alpha').value || 0))],
+             accent: hex2rgb($('b-accent').value),
+             border_width: Math.max(0, Math.min(8, +$('b-bw').value || 0)),
+             font_scale: Math.max(0.5, Math.min(2, +$('b-fs').value || 1))};
+  const r = $('b-radius').value;
+  o.radius = r === '' ? null : Math.max(0, Math.min(200, +r));
+  return o;
+}
+function fillBubbleStyle(b){
+  if (!b || busy('card-layout')) return;
+  $('pb-on').checked = b.enabled !== false;
+  $('pb-ttl').value = b.ttl ?? 8;
+  $('pb-tail').value = ['up','down','none'].includes(b.tail) ? b.tail : 'up';
+  $('pb-fs').value = b.font_scale ?? 1;
+}
+function bubbleStyleFromUI(){
+  return {enabled: $('pb-on').checked,
+          ttl: Math.max(3, Math.min(30, +$('pb-ttl').value || 8)),
+          tail: $('pb-tail').value,
+          font_scale: Math.max(0.5, Math.min(2, +$('pb-fs').value || 1))};
+}
+function fillHistoStyle(h, sp){
+  if (!h || busy('card-layout')) return;
+  $('hs-on').checked = h.enabled !== false;
+  $('hs-bars').value = h.bars ?? 28;
+  $('hs-sens').value = h.sensitivity ?? 1;
+  $('hs-cap').checked = h.peak_cap !== false;
+  $('hs-c1').value = rgb2hex(h.accent || [126,200,255]);
+  $('hs-c2').value = rgb2hex(h.accent2 || [255,110,190]);
+  if (h.enabled === false) $('hs-note').textContent = '（已关闭）';
+  else if (sp && sp.available) $('hs-note').textContent = '● 正在采集系统声音';
+  else $('hs-note').textContent = '○ 采集未就绪' + (sp && sp.error ? '：' + sp.error : '');
+}
+function histoStyleFromUI(){
+  return {enabled: $('hs-on').checked,
+          bars: Math.max(8, Math.min(64, +$('hs-bars').value || 28)),
+          sensitivity: Math.max(0.2, Math.min(3, +$('hs-sens').value || 1)),
+          peak_cap: $('hs-cap').checked,
+          accent: hex2rgb($('hs-c1').value),
+          accent2: hex2rgb($('hs-c2').value)};
+}
+async function applyLayout(){
+  const j = await post('/api/render', {canvas: {layout: layoutFromUI()},
+                                       balance: balanceStyleFromUI(),
+                                       bubble: bubbleStyleFromUI(),
+                                       histo: histoStyleFromUI()});
+  if (j.ok) toast('布局与样式已应用');
+}
+function fullPreview(){
+  const el = $('preview');
+  if (document.fullscreenElement) { document.exitFullscreen(); return; }
+  if (el.requestFullscreen) el.requestFullscreen()
+    .catch(() => toast('该浏览器不支持全屏'));
+}
+function collectRender(){
+  const st = {}; document.querySelectorAll('.d-type').forEach(el => st[el.dataset.k] = el.checked);
+  const banners = $('d-banners').value.split('\n').map(s=>s.trim()).filter(Boolean)
+                .map(t => ({text: t}));
+  return {
+    danmaku: {
+      title: {enabled: $('d-title-on').checked, text: $('d-title').value,
+              color: hex2rgb($('d-title-color').value)},
+      bg: [...hex2rgb($('d-bg-color').value), Math.max(0,Math.min(255,+$('d-bg-alpha').value||0))],
+      bg_image: bgPath || null,
+      radius: +$('d-radius').value || 0,
+      border: {enabled: $('d-border-on').checked},
+      font_scale: +$('d-fscale').value || 1,
+      max_lines: Math.max(3, Math.min(24, +$('d-maxlines').value || 12)),
+      banner_seconds: +$('d-bsec').value || 6,
+      banners,
+      show_types: st,
+      templates: {gift: $('d-tpl-gift').value.trim() || null,
+                  like: $('d-tpl-like').value.trim() || null,
+                  follow: $('d-tpl-follow').value.trim() || null,
+                  member: $('d-tpl-member').value.trim() || null}
+    },
+    character: {name: $('c-name').value.trim(), base_hue: +$('c-hue').value || 205,
+                idle_amplitude: +$('c-amp').value || 18,
+                rotate_seconds: Math.max(0, Math.min(600, +$('c-rot').value || 0)),
+                video: ($('c-videosel') ? $('c-videosel').value : cVideo) || null,
+                chroma: {enabled: $('c-chroma-on').checked,
+                         color: hex2rgb($('c-chroma-color').value),
+                         tolerance: Math.max(0, Math.min(255, +$('c-chroma-tol').value || 0)),
+                         softness: Math.max(0, Math.min(255, +$('c-chroma-soft').value || 0))}},
+    balance: {enabled: $('d-bon').checked,
+              title: $('d-btitle').value.trim() || '直播小账本'},
+    songq: {enabled: $('j-panel-on').checked,
+            title: $('j-panel-title').value.trim() || '点歌队列'},
+    sfx: {enabled: $('s-on').checked}
+  };
+}
+async function applyRender(){
+  const body = collectRender();
+  body.canvas = canvasFromUI();
+  const j = await post('/api/render', body);
+  if (j.ok) toast('已实时应用，看中间「最终画面」');
+}
+$('d-bgfile').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const b64 = await new Promise(res => {
+    const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]);
+    r.readAsDataURL(f);
+  });
+  const j = await post('/api/upload', {name: f.name.replace(/[^A-Za-z0-9_.-]/g,'_'), b64});
+  if (j.ok) { bgPath = j.path; $('d-bgnote').textContent = '当前背景图：' + bgPath;
+    toast('背景图已上传，点「实时应用」查看'); }});
+function clearBg(){ bgPath = ''; $('d-bgnote').textContent = '已清除背景图（点「实时应用」生效）'; }
+$('s-wav').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (!/\.wav$/i.test(f.name)) { toast('只支持 .wav 音效'); return; }
+  if (f.size > 8 * 1024 * 1024) { toast('音效超过 8MB（应该是很短的声音）'); return; }
+  const b64 = await new Promise(res => {
+    const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]);
+    r.readAsDataURL(f);
+  });
+  const j = await post('/api/upload', {name: f.name.replace(/[^A-Za-z0-9_.-]/g,'_'), b64});
+  if (j.ok) { toast('音效已入库' + (j.played ? '（刚试听一声，听见了吗？）' : '')); refreshState(); }
+  else toast('音效上传失败：' + (j.message || '未知错误'));
+  e.target.value = '';
+});
+$('c-video').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (f.size > 48 * 1024 * 1024) { toast('视频超过 48MB，请先压缩'); return; }
+  $('c-videonote').textContent = '上传中…（' + (f.size / 1024 / 1024).toFixed(1) + 'MB）';
+  const b64 = await new Promise(res => {
+    const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]);
+    r.readAsDataURL(f);
+  });
+  const j = await post('/api/upload', {name: f.name.replace(/[^A-Za-z0-9_.-]/g,'_'), b64});
+  if (j.ok) {
+    cVideo = j.path.split('/').pop();
+    const sel = $('c-videosel');
+    if (sel && !sel.querySelector('option[value="' + cVideo + '"]')) {
+      const o = document.createElement('option');
+      o.value = cVideo; o.textContent = cVideo; sel.appendChild(o);
+    }
+    if (sel) sel.value = cVideo;
+    $('c-videonote').textContent = '已加入视频库并启用：' + j.path;
+    toast('人物视频已启用（' + (j.duration || 0).toFixed(1) + 's），看中间预览');
+  } else {
+    toast(j.message || '上传失败', true);
+  }
+});
+async function deleteVideo(){
+  const name = $('c-videosel').value;
+  if (!name) { toast('先在「当前使用」下拉里选中要删除的视频', true); return; }
+  if (!confirm('确定删除 assets/' + name + ' ？（文件会从磁盘移除）')) return;
+  const j = await post('/api/video_delete', {name});
+  if (j.ok) {
+    const sel = $('c-videosel');
+    sel.innerHTML = '<option value="">（无视频：透明空场）</option>' +
+      (j.videos || []).map(v => '<option value="' + v + '">' + v + '</option>').join('');
+    sel.value = j.video || '';
+    cVideo = j.video || '';
+    $('c-videonote').textContent = vids_note(j.videos, j.video);
+    toast('已删除 ' + name);
+  } else toast(j.message || '删除失败', true);
+}
+function vids_note(list, cur){
+  return (list && list.length)
+    ? ('视频库共 ' + list.length + ' 个 · 当前使用：assets/' + (cur || '（未选）'))
+    : '视频库为空（上传一个视频即可启用）';
+}
+function testFx(){
+  post('/api/inject', {type:'member', nickname:'演示观众A', member_count:233});
+  post('/api/inject', {type:'gift', nickname:'演示土豪',
+    gift_name: GIFT_NAMES[0] || '小心心', num:5});
+  post('/api/inject', {type:'comment', nickname:'演示观众B', content:'这个面板装修得不错！'});
+  toast('已注入 3 条演示事件');
+}
+
+// ---- 白饭账本 ----
+function fmtNum(v){
+  const n = +v || 0;
+  return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(2);
+}
+function fillLedger(lg){
+  if (!lg) return;
+  $('lg-balance').textContent = fmtNum(lg.balance);
+  $('lg-cur').textContent = lg.currency || '元';
+  $('lg-income').textContent = '+' + fmtNum(lg.today_income);
+  $('lg-spend').textContent = '-' + fmtNum(lg.today_spend);
+  $('lg-rice').textContent = Math.floor(lg.today_spend || 0) + ' 碗';
+  $('lg-giftsn').textContent = (lg.today_gifts || 0) + ' 份';
+  $('lg-tokens').textContent = (lg.today_tokens || 0).toLocaleString();
+  if (busy('card-ledger')) return;
+  const r = lg.rules || {};
+  $('lg-inmul').value = r.income_multiplier ?? 1;
+  $('lg-spmul').value = r.spend_multiplier ?? 1;
+  $('lg-token').value = r.token_cost_per_million ?? 0;
+  $('lg-coin').value = r.default_coin_rate ?? 1;
+  $('lg-start').value = r.start_balance ?? 0;
+  const gr = r.gift_rates || {};
+  $('lg-gifts').value = Object.keys(gr).map(k => k + '=' + gr[k]).join('\n');
+}
+function ledgerRulesFromUI(){
+  const rates = {};
+  $('lg-gifts').value.split('\n').forEach(line => {
+    const s = line.trim(); if (!s) return;
+    const i = s.lastIndexOf('='); if (i <= 0) return;
+    const k = s.slice(0, i).trim(); const v = parseFloat(s.slice(i + 1));
+    if (k && !isNaN(v)) rates[k] = v;
+  });
+  const num = (id, dft) => { const v = parseFloat($(id).value);
+    return isNaN(v) ? dft : v; };
+  return {income_multiplier: num('lg-inmul', 1),
+          spend_multiplier: num('lg-spmul', 1),
+          token_cost_per_million: num('lg-token', 0),
+          default_coin_rate: num('lg-coin', 1),
+          start_balance: num('lg-start', 0),
+          gift_rates: rates};
+}
+async function saveLedger(){
+  const j = await post('/api/ledger/rules', ledgerRulesFromUI());
+  if (j.ok) { fillLedger(j); toast('账本规则已保存并生效'); }
+}
+async function ledgerAdjust(delta){
+  if (!delta) { toast('先填金额'); return; }
+  const j = await post('/api/ledger/adjust', {delta});
+  if (j.ok) fillLedger(j);
+}
+async function ledgerReset(){
+  if (!confirm('重置账本：余额设为「初始余额」，今日进账/消耗清零？')) return;
+  const j = await post('/api/ledger/reset', {balance: $('lg-start').value});
+  if (j.ok) { fillLedger(j); toast('账本已重置'); }
+}
+
+// ---- 点歌中心 ----
+function fillJukebox(jb){
+  if (!jb || busy('card-song')) return;
+  const j = jb.cfg || {}, st = jb.status || {};
+  $('j-on').checked = !!j.enabled;
+  $('j-trigger').value = j.trigger || '点歌';
+  $('j-cd').value = j.cooldown ?? 60;
+  $('j-sec').value = j.play_seconds ?? 30;
+  $('j-qmax').value = j.queue_max ?? 8;
+  $('j-mvol').value = j.music_volume ?? 45;
+  $('j-bgm').checked = j.bgm_enabled !== false;
+  $('j-bpool').value = (j.bgm_pool || []).join('\n');
+  $('j-black').value = (j.blacklist || []).join('\n');
+  $('j-voice').value = j.voice || '';
+  let html;
+  if (st.playing && st.current){
+    const c = st.current;
+    html = '▶ ' + esc(c.name) + (c.artist ? ' - ' + esc(c.artist) : '') +
+      '（' + Math.round(c.elapsed||0) + '/' + (c.limit||30) + 's，' +
+      (c.bgm ? '自动BGM' : esc(c.nickname||'观众') + ' 点播') + '）';
+    if ((st.queue||[]).length)
+      html += '<br>排队：' + st.queue.map((s,i) => (i+2) + '. ' + esc(s.name) +
+        '（' + esc(s.nickname||'') + '）').join('　');
+  } else if ((st.queue||[]).length) {
+    html = '排队：' + st.queue.map((s,i) => (i+1) + '. ' + esc(s.name) +
+      '（' + esc(s.nickname||'') + '）').join('　');
+  } else {
+    html = j.enabled ? '已开启，等待点歌（弹幕发「' + esc(j.trigger||'点歌') + ' 歌名」）'
+                     : '未启用';
+  }
+  html += '　·　累计点歌 ' + (st.requests||0) + ' / 已播 ' + (st.played||0) +
+          (st.bgm ? ' / 自动垫歌 ' + st.bgm : '');
+  $('j-status').innerHTML = html;
+}
+function collectJuke(){
+  return {enabled: $('j-on').checked,
+          trigger: $('j-trigger').value.trim() || '点歌',
+          cooldown: Math.max(0, +$('j-cd').value || 0),
+          play_seconds: Math.max(10, Math.min(120, +$('j-sec').value || 30)),
+          queue_max: Math.max(1, Math.min(20, +$('j-qmax').value || 8)),
+          music_volume: Math.max(0, Math.min(100, +($('j-mvol').value || 45))),
+          bgm_enabled: $('j-bgm').checked,
+          bgm_pool: $('j-bpool').value.split('\n').map(s => s.trim()).filter(Boolean),
+          fade_seconds: 1.5,
+          blacklist: $('j-black').value.split('\n').map(s => s.trim()).filter(Boolean),
+          voice: $('j-voice').value.trim() || null};
+}
+async function jukeSave(){
+  const body = collectJuke();
+  const a = $('j-appid').value.trim(), k = $('j-pkey').value.trim();
+  if (a) body.appid = a;
+  if (k) body.privatekey = k;
+  const sqOn = $('j-panel-on').checked;
+  const j = await post('/api/jukebox', body);
+  await post('/api/render', {songq: {enabled: sqOn,
+    title: $('j-panel-title').value.trim() || '点歌队列',
+    font_scale: Math.max(0.5, Math.min(2, +$('j-fs').value || 1))}});
+  if (j.ok) { toast(a || k ? '设置已保存，密钥已写入 ncm-cli' : '点歌设置已保存');
+    $('j-appid').value = ''; $('j-pkey').value = ''; }
+  else toast('密钥配置失败：' + (j.message || ''), true);
+}
+async function jukeReq(){
+  const kw = $('j-kw').value.trim(); if (!kw) return;
+  toast('点歌中：' + kw);
+  const j = await post('/api/jukebox/req', {keyword: kw, nickname: '主播'});
+  if (j.ok) toast('已进队：《' + j.song.name + '》第 ' + j.pos + ' 位');
+  else toast(j.message || '失败', true);
+}
+async function jukeTest(){
+  toast('搜索中…');
+  const j = await post('/api/jukebox/test', {keyword: $('j-kw').value || '晴天'});
+  if (j.ok){ toast('找到 ' + j.count + ' 首：' + (j.songs||[]).slice(0,3)
+      .map(s => s.name).join('、')); }
+  else toast('搜索失败：检查密钥与登录（点「扫码登录」）', true);
+}
+async function jukeSkip(){ const j = await post('/api/jukebox/skip', {}); toast(j.message); }
+async function jukeClear(){ const j = await post('/api/jukebox/clear', {}); toast(j.message); }
+async function jukeLogin(){
+  toast('生成登录链接…');
+  const j = await post('/api/jukebox/login', {});
+  if (j.ok && j.url){ window.open(j.url, '_blank');
+    toast('已打开登录页，用网易云 App 扫码/确认'); }
+  else toast('登录链接生成失败：' + (j.message||''), true);
+}
+
+// ---- TTS ----
+const TTYPES = [['reply','AI 回复'],['member','进场'],['follow','关注'],['like','点赞'],['song','点歌播报']];
+function buildTtsTypes(cur){
+  const box = $('t-type-box');
+  if (!box.children.length)
+    box.innerHTML = TTYPES.map(([k,l]) =>
+      `<label style="display:flex;gap:5px;align-items:center;margin:0">
+       <input type="checkbox" class="t-type" data-k="${k}" style="width:auto">
+       <span>${l}</span></label>`).join('');
+  box.querySelectorAll('.t-type').forEach(el =>
+    el.checked = cur ? cur.includes(el.dataset.k) : true);
+}
+function fillTts(t, stats){
+  if (t && !busy('card-tts')){
+    $('t-on').checked = !!t.enabled;
+    $('t-url').value = t.base_url || '';
+    $('t-speed').value = t.speed_factor ?? 1;
+    $('t-vol').value = t.volume ?? 100;
+    $('t-ref').value = t.ref_audio_path || '';
+    $('t-prompt').value = t.prompt_text || '';
+    buildTtsTypes(t.speak_types);
+  }
+  if (stats && Object.keys(stats).length)
+    $('t-stats').textContent = `已请求 ${stats.requested||0} · 合成完成 ${stats.done||0} · 失败 ${stats.failed||0} · 队满丢旧 ${stats.dropped||0} · 最近耗时 ${stats.last_ms||0}ms` + (stats.warm_ms ? ` · 已预热(${stats.warm_ms}ms)` : '');
+}
+function ttsFromUI(){
+  return {enabled: $('t-on').checked,
+          base_url: $('t-url').value.trim(),
+          speed_factor: parseFloat($('t-speed').value) || 1,
+          volume: Math.max(0, Math.min(200, +($('t-vol').value || 100))),
+          ref_audio_path: $('t-ref').value.trim(),
+          prompt_text: $('t-prompt').value,
+          speak_types: [...document.querySelectorAll('.t-type')]
+            .filter(c => c.checked).map(c => c.dataset.k)};
+}
+async function saveTts(){
+  const j = await post('/api/tts', ttsFromUI());
+  if (j.ok) toast('TTS 设置已应用并保存');
+}
+let ttsBusy = false;
+async function ttsTest(){
+  if (ttsBusy) return;
+  ttsBusy = true;
+  toast('正在合成…首次冷启动约 20-30 秒，别关页面');
+  try {
+    const j = await post('/api/tts/test', {text: $('t-test').value || '测试语音'});
+    if (j.ok) toast(`TTS OK：${j.ms}ms / ${(j.bytes/1024).toFixed(0)}KB，本机已播放`);
+    else toast(j.message || 'TTS 失败');
+  } catch (e) { toast('TTS 请求异常：' + e); }
+  ttsBusy = false;
+}
+
+// ---- 状态 / 流 ----
+const WSS_TXT = {idle:'未连接', connecting:'连接中…', connected:'已连接',
+                 closed:'已断开', error:'出错'};
+async function refreshState(){
+  const s = await get('/api/state');
+  GIFT_NAMES = s.gift_names || GIFT_NAMES;
+  const b = (id, cls, txt) => { const e=$(id); e.className='badge '+cls; e.textContent=txt; };
+  b('b-app', s.app_connected?'on':'err', s.mode);
+  const wst = WSS_TXT[s.wss.status] || s.wss.status;
+  b('b-wss', s.wss.status==='connected'?'on':(s.wss.status==='connecting'?'conn':
+     (s.wss.status==='error'?'err':'idle')), 'WSS：'+wst + (s.wss.room_id?` (${s.wss.room_id})`:''));
+  b('b-sim', s.sim.running?'on':'idle', '模拟器：'+(s.sim.running?'开':'关'));
+  b('b-stats','idle',`事件 ${s.events.received||0} · 出 ${s.events.emitted||0} · 帧 ${s.frames_sent}`);
+  const w = s.wss.stats||{};
+  $('stats').innerHTML = [
+    ['帧推送', s.frames_sent], ['收到事件', s.events.received||0],
+    ['去重丢弃', s.events.dropped_dup||0], ['分发事件', s.events.emitted||0],
+    ['WSS帧', w.frames||0], ['WSS消息', w.messages||0], ['WSS转换', w.emitted||0],
+    ['WSS错误', w.errors||0]
+  ].map(([k,v])=>`<span style="flex:1;min-width:80px"><b>${v}</b>${k}</span>`).join('');
+  fillAi(s.ai);
+  fillDeco(s.render, s.canvas);
+  buildLayout(s.canvas);
+  fillBalanceStyle((s.render || {}).balance);
+  fillBubbleStyle((s.render || {}).bubble);
+  fillHistoStyle((s.render || {}).histo, (s.render || {}).spectrum);
+  fillSfx(s.sfx);
+  fillLedger(s.ledger);
+  fillJukebox(s.jukebox);
+  fillTts(s.tts, s.tts_stats);
+  const cw = s.config_wss||{};
+  if (cw.room_id && !$('w-room').value) $('w-room').value = cw.room_id;
+  if (cw.room_url && !$('w-auto').value) $('w-auto').value = cw.room_url;
+  if (cw.user_id && !$('w-user').value) $('w-user').value = cw.user_id;
+  if (cw.device_id && !$('w-dev').value) $('w-dev').value = cw.device_id;
+  $('w-remember').checked = !!s.has_credentials_saved;
+  $('w-autostart').checked = !!cw.autostart;
+}
+
+const feed = $('feed');
+function renderEv(it){
+  const d = it.data; let html, cls;
+  if (it.kind === 'reply'){
+    cls='reply';
+    html = `<span class="who">🤖 AI→${d.to}</span><span class="tag">${d.type}</span><br>${esc(d.text)}`;
+  } else {
+    cls = d.type;
+    const who = esc(d.nickname||'观众');
+    const T = {comment:`说：${esc(d.content)}`, gift:`送出 <b>${esc(d.gift_name)}</b> ×${d.gift_num}`,
+      like:`点赞 ×${d.like_num}`, follow:d.follow_action===2?'取消关注':'关注了主播',
+      member:`进入直播间${d.member_count?`（在线 ${d.member_count}）`:''}`,
+      fansclub:`粉丝团 Lv${d.fansclub_level}`, room_stats:`在线 ${d.online||0} 人`}[d.type]||d.type;
+    html = `<span class="who">${who}</span> ${T}<span class="tag">${new Date((d.ts||0)*1000).toLocaleTimeString()}</span>`;
+  }
+  const div = document.createElement('div');
+  div.className = 'ev '+cls; div.innerHTML = html;
+  feed.appendChild(div);
+  while (feed.children.length > 400) feed.removeChild(feed.firstChild);
+  feed.scrollTop = feed.scrollHeight;
+}
+function renderLog(it){
+  const box = $('logs');
+  const div = document.createElement('div');
+  div.className = it.data.level;
+  div.textContent = `[${new Date(it.ts*1000).toLocaleTimeString()}] ${it.data.text}`;
+  box.appendChild(div);
+  while (box.children.length > 200) box.removeChild(box.firstChild);
+  box.scrollTop = box.scrollHeight;
+}
+function esc(s){ const d=document.createElement('div'); d.textContent=String(s??''); return d.innerHTML; }
+
+function connectStream(){
+  const es = new EventSource('/api/stream');
+  es.onmessage = e => {
+    const it = JSON.parse(e.data);
+    if (it.kind==='event'||it.kind==='reply') renderEv(it);
+    else if (it.kind==='log') renderLog(it);
+  };
+  es.onerror = () => { es.close(); setTimeout(connectStream, 2000); };
+}
+
+injectForm();
+buildTypes(null);
+refreshState(); setInterval(refreshState, 2000);
+connectStream();
+$('mjpeg').src = '/mjpeg?t=' + Date.now();
+</script>
+</body>
+</html>

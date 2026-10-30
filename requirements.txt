@@ -1,0 +1,9 @@
+# Python 3.10+（开发验证于 3.13）
+Pillow>=10.0
+# WSS 逆向数据源 / Web 控制台需要（官方 mock 自测模式不需要）
+websocket-client>=1.6
+# 可选：外部透明视频素材解码需要系统 PATH 里有 ffmpeg / ffprobe（已验证 7.1.1）
+# 音乐频谱面板（随声音跳动的直方图）需要：环回录音 + FFT
+numpy>=1.24
+pyaudiowpatch>=0.2.12        # WASAPI 环回录音（Windows 抓取本机扬声器输出）
+# AI 调用使用标准库 urllib，无额外 SDK 依赖；Web 控制台纯标准库（http.server），无新增依赖

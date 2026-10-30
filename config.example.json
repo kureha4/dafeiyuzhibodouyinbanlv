@@ -1,0 +1,353 @@
+{
+  "mode": "mock",
+  "layout_mode": 0,
+  "fps": 30,
+  "channels": {
+    "character": {
+      "id": 0,
+      "width": 720,
+      "height": 1080
+    },
+    "danmaku": {
+      "id": 1,
+      "width": 620,
+      "height": 900
+    },
+    "audio": {
+      "id": 2
+    },
+    "balance": {
+      "id": 3,
+      "width": 520,
+      "height": 170
+    },
+    "songq": {
+      "id": 4,
+      "width": 520,
+      "height": 300
+    },
+    "bubble": {
+      "id": 5,
+      "width": 760,
+      "height": 220
+    },
+    "histo": {
+      "id": 6,
+      "width": 460,
+      "height": 140
+    }
+  },
+  "render": {
+    "font_path": "C:/Windows/Fonts/msyh.ttc",
+    "character": {
+      "name": "小抖",
+      "base_hue": 205,
+      "idle_amplitude": 18,
+      "rotate_seconds": 90
+    },
+    "danmaku": {
+      "bg": [
+        12,
+        16,
+        30,
+        150
+      ],
+      "max_lines": 12,
+      "enter_seconds": 0.35,
+      "bubble_colors": {
+        "comment": [
+          46,
+          156,
+          219
+        ],
+        "gift": [
+          240,
+          134,
+          58
+        ],
+        "like": [
+          214,
+          90,
+          140
+        ],
+        "follow": [
+          87,
+          185,
+          138
+        ],
+        "fansclub": [
+          150,
+          120,
+          220
+        ],
+        "member": [
+          150,
+          120,
+          220
+        ]
+      },
+      "title": {
+        "enabled": true,
+        "text": "小抖の直播间",
+        "color": [
+          255,
+          255,
+          255
+        ]
+      },
+      "banners": [
+        {
+          "text": "点关注不迷路～",
+          "color": [
+            255,
+            200,
+            120
+          ]
+        },
+        {
+          "text": "每晚 8 点开播",
+          "color": [
+            140,
+            220,
+            255
+          ]
+        }
+      ],
+      "banner_seconds": 6,
+      "radius": 32,
+      "border": {
+        "enabled": true,
+        "width": 2,
+        "color": [
+          255,
+          255,
+          255
+        ]
+      },
+      "font_scale": 1.0,
+      "bg_image": "",
+      "show_types": {
+        "comment": true,
+        "gift": true,
+        "like": false,
+        "follow": true,
+        "member": true,
+        "fansclub": true,
+        "room_stats": false
+      },
+      "templates": {
+        "gift": "送出 {gift_name}",
+        "like": "点赞",
+        "follow": "关注了主播",
+        "member": "进入直播间"
+      }
+    },
+    "balance": {
+      "enabled": true,
+      "title": "直播小账本",
+      "accent": [
+        255,
+        214,
+        90
+      ],
+      "bg": [
+        12,
+        16,
+        30,
+        170
+      ],
+      "rice_from": "spend",
+      "font_scale": 1.0
+    },
+    "songq": {
+      "enabled": true,
+      "title": "点歌队列",
+      "accent": [
+        126,
+        200,
+        255
+      ],
+      "bg": [
+        12,
+        16,
+        30,
+        170
+      ],
+      "font_scale": 1.0
+    },
+    "bubble": {
+      "enabled": true,
+      "bg": [
+        20,
+        26,
+        48,
+        225
+      ],
+      "text": [
+        255,
+        255,
+        255
+      ],
+      "accent": [
+        126,
+        200,
+        255
+      ],
+      "ttl": 8,
+      "tail": "up",
+      "font_scale": 1.0
+    },
+    "histo": {
+      "enabled": true,
+      "bars": 28,
+      "sensitivity": 1.0,
+      "bg": [
+        12,
+        16,
+        30,
+        150
+      ],
+      "accent": [
+        126,
+        200,
+        255
+      ],
+      "accent2": [
+        255,
+        110,
+        190
+      ],
+      "peak_cap": true
+    }
+  },
+  "ai": {
+    "enabled": true,
+    "provider": "openai_compatible",
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-4o-mini",
+    "api_key": "",
+    "persona": "你是一个抖音直播间的 AI 虚拟主播，名字叫{char_name}，性格开朗、口语化、热情，回复简短（不超过40字），不要用markdown。",
+    "welcome_template": "欢迎 {nickname} 小伙伴来到直播间～",
+    "gift_template": "感谢 {nickname} 送的{gift_name}x{gift_num}！比心～",
+    "max_queue": 64,
+    "request_timeout": 12.0,
+    "temperature": 0.8,
+    "max_reply_chars": 60,
+    "min_interval": {
+      "comment": 2.0,
+      "gift": 1.0,
+      "like": 20.0,
+      "follow": 1.5,
+      "member": 8.0
+    },
+    "history_size": 12,
+    "reply_types": [
+      "comment",
+      "gift"
+    ],
+    "max_tokens": 500
+  },
+  "tts": {
+    "enabled": true,
+    "provider": "gpt_sovits",
+    "base_url": "http://127.0.0.1:9880",
+    "ref_audio_path": "D:/ProjectFile/声音数据集/wav/001.wav",
+    "prompt_text": "前方高能，野兽出现吗，胜利属于我们。",
+    "prompt_lang": "zh",
+    "text_lang": "auto",
+    "speed_factor": 1.0,
+    "seed": -1,
+    "timeout": 120.0,
+    "local_playback": true,
+    "speak_types": [
+      "reply",
+      "member",
+      "follow",
+      "like",
+      "song"
+    ],
+    "templates": {
+      "member": "欢迎 {nickname} 进入直播间～",
+      "follow": "感谢 {nickname} 的关注～",
+      "like": "感谢 {nickname} 的点赞支持～"
+    },
+    "volume": 100
+  },
+  "ledger": {
+    "currency": "元",
+    "start_balance": 0,
+    "income_multiplier": 1.0,
+    "spend_multiplier": 1.0,
+    "gift_rates": {},
+    "default_coin_rate": 1.0,
+    "token_cost_per_million": 0.0
+  },
+  "canvas": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 24,
+    "quality": 88,
+    "bg": [
+      12,
+      16,
+      30
+    ],
+    "bg_image": "",
+    "layout": {
+      "character": {
+        "x": 180,
+        "y": 720,
+        "w": 720,
+        "h": 1080
+      },
+      "danmaku": {
+        "x": 30,
+        "y": 120,
+        "w": 460,
+        "h": 668
+      },
+      "balance": {
+        "x": 530,
+        "y": 40,
+        "w": 520,
+        "h": 170
+      },
+      "songq": {
+        "x": 530,
+        "y": 230,
+        "w": 520,
+        "h": 300
+      },
+      "bubble": {
+        "x": 30,
+        "y": 1460,
+        "w": 760,
+        "h": 220
+      },
+      "histo": {
+        "x": 30,
+        "y": 1020,
+        "w": 460,
+        "h": 140
+      }
+    }
+  },
+  "jukebox": {
+    "enabled": false,
+    "bin": "",
+    "trigger": "点歌",
+    "cooldown": 60,
+    "blacklist": [],
+    "voice": "感谢 {nickname} 的点歌：《{song}》",
+    "queue_max": 8,
+    "play_seconds": 30,
+    "fade_seconds": 1.5,
+    "music_volume": 45,
+    "bgm_enabled": true,
+    "bgm_pool": []
+  },
+  "sfx": {
+    "enabled": true,
+    "files": []
+  }
+}
